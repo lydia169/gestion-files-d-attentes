@@ -1,5 +1,9 @@
 # Dependencies
 /node_modules
+**/node_modules/
+
+# Ignore nested project/git metadata
+gestion-files-d-attentes/
 
 # Build output
 /build

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Service, QueueItem, QueueStats, Patient } from '../types';
 import { queueAPI, servicesAPI, patientsAPI } from '../services/api';
 
@@ -31,10 +31,64 @@ const QueueManagement: React.FC<QueueManagementProps> = ({ isAgentView = false }
   const [showTicket, setShowTicket] = useState(false);
   const [ticketData, setTicketData] = useState<TicketData | null>(null);
 
+  const loadServices = useCallback(async () => {
+    try {
+      const data = await servicesAPI.getAll();
+      setServices(data);
+      if (data.length > 0 && !selectedService) {
+        setSelectedService(data[0].id);
+      }
+    } catch (error) {
+      console.error("Erreur lors du chargement des services:", error);
+    }
+  }, [selectedService]);
+
+  const loadPatients = useCallback(async () => {
+    try {
+      const data = await patientsAPI.getAll();
+      setPatients(data);
+    } catch (error) {
+      console.error("Erreur lors du chargement des patients:", error);
+    }
+  }, []);
+
+  const loadQueue = useCallback(async () => {
+    if (!selectedService) return;
+    setLoading(true);
+    try {
+      const data = await queueAPI.getQueueByService(selectedService);
+      setQueue(data);
+    } catch (error) {
+      console.error("Erreur lors du chargement de la file:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedService]);
+
+  const loadCurrentPatient = useCallback(async () => {
+    if (!selectedService) return;
+    try {
+      const data = await queueAPI.getCurrentPatient(selectedService);
+      setCurrentPatient(data);
+    } catch (error) {
+      console.error("Erreur lors du chargement du patient actuel:", error);
+    }
+  }, [selectedService]);
+
+  const loadStats = useCallback(async () => {
+    if (!selectedService) return;
+    try {
+      const data = await queueAPI.getStats(selectedService);
+      setStats(data);
+    } catch (error) {
+      console.error("Erreur lors du chargement des statistiques:", error);
+    }
+  }, [selectedService]);
+
   useEffect(() => {
     loadServices();
     loadPatients();
-  }, []);
+  }, [loadServices, loadPatients]);
 
   useEffect(() => {
     if (selectedService) {
@@ -48,61 +102,7 @@ const QueueManagement: React.FC<QueueManagementProps> = ({ isAgentView = false }
       }, 10000);
       return () => clearInterval(interval);
     }
-  }, [selectedService]);
-
-  const loadServices = async () => {
-    try {
-      const data = await servicesAPI.getAll();
-      setServices(data);
-      if (data.length > 0 && !selectedService) {
-        setSelectedService(data[0].id);
-      }
-    } catch (error) {
-      console.error("Erreur lors du chargement des services:", error);
-    }
-  };
-
-  const loadPatients = async () => {
-    try {
-      const data = await patientsAPI.getAll();
-      setPatients(data);
-    } catch (error) {
-      console.error("Erreur lors du chargement des patients:", error);
-    }
-  };
-
-  const loadQueue = async () => {
-    if (!selectedService) return;
-    setLoading(true);
-    try {
-      const data = await queueAPI.getQueueByService(selectedService);
-      setQueue(data);
-    } catch (error) {
-      console.error("Erreur lors du chargement de la file:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadCurrentPatient = async () => {
-    if (!selectedService) return;
-    try {
-      const data = await queueAPI.getCurrentPatient(selectedService);
-      setCurrentPatient(data);
-    } catch (error) {
-      console.error("Erreur lors du chargement du patient actuel:", error);
-    }
-  };
-
-  const loadStats = async () => {
-    if (!selectedService) return;
-    try {
-      const data = await queueAPI.getStats(selectedService);
-      setStats(data);
-    } catch (error) {
-      console.error("Erreur lors du chargement des statistiques:", error);
-    }
-  };
+  }, [selectedService, loadQueue, loadCurrentPatient, loadStats]);
 
   const handleCallNext = async () => {
     if (!selectedService) return;

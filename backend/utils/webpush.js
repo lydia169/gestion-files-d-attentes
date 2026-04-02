@@ -1,19 +1,18 @@
 // Configuration Web Push avec VAPID keys
 const webpush = require('web-push');
+require('dotenv').config();
 
-// Clés VAPID générées pour l'application
-const vapidKeys = {
-  publicKey: 'BEiBIFXDKRhBehlcNwczX8FfKjqgmBWNJ2MASY9gJ-3OEH1Oq8XmUakPI5Lbv8iKBreHuSk2q8tY9M8NLIuc3ow',
-  privateKey: '8X4FzIOok4IiDXYAewUFOqg4YZBhL0iYWDc0-s9t_0w'
-};
+const publicKey = process.env.VAPID_PUBLIC_KEY;
+const privateKey = process.env.VAPID_PRIVATE_KEY;
+const mailto = process.env.VAPID_MAILTO || 'mailto:admin@hopital-kyeshero.com';
 
-webpush.setVapidDetails(
-  'mailto:admin@hopital-kyeshero.com',
-  vapidKeys.publicKey,
-  vapidKeys.privateKey
-);
+if (!publicKey || !privateKey) {
+  console.warn('[webpush] VAPID_PUBLIC_KEY ou VAPID_PRIVATE_KEY non définis — les notifications push seront désactivées.');
+} else {
+  webpush.setVapidDetails(mailto, publicKey, privateKey);
+}
 
 module.exports = {
   webpush,
-  vapidKeys
+  vapidKeys: { publicKey, privateKey },
 };

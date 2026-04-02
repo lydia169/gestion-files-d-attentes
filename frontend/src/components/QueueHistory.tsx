@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Service, QueueItem } from '../types';
 import { queueAPI, servicesAPI } from '../services/api';
 
@@ -9,17 +9,7 @@ const QueueHistory: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState<'all' | 'today' | 'week' | 'month'>('today');
 
-  useEffect(() => {
-    loadServices();
-  }, []);
-
-  useEffect(() => {
-    if (selectedService) {
-      loadHistory();
-    }
-  }, [selectedService, filter]);
-
-  const loadServices = async () => {
+  const loadServices = useCallback(async () => {
     try {
       const data = await servicesAPI.getAll();
       setServices(data);
@@ -29,9 +19,9 @@ const QueueHistory: React.FC = () => {
     } catch (error) {
       console.error("Erreur lors du chargement des services:", error);
     }
-  };
+  }, []);
 
-  const loadHistory = async () => {
+  const loadHistory = useCallback(async () => {
     if (!selectedService) return;
     setLoading(true);
     try {
@@ -68,7 +58,17 @@ const QueueHistory: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedService, filter]);
+
+  useEffect(() => {
+    loadServices();
+  }, [loadServices]);
+
+  useEffect(() => {
+    if (selectedService) {
+      loadHistory();
+    }
+  }, [selectedService, filter, loadHistory]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);

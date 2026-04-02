@@ -9,8 +9,14 @@ const authenticateToken = async (req, res, next) => {
     return res.status(401).json({ message: 'Token d\'authentification requis' });
   }
 
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    console.error('[auth] JWT_SECRET non configuré dans les variables d\'environnement');
+    return res.status(500).json({ message: 'Erreur de configuration serveur' });
+  }
+
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, secret);
     const user = await User.findById(decoded.id);
     
     if (!user) {
@@ -20,6 +26,9 @@ const authenticateToken = async (req, res, next) => {
     req.user = user;
     next();
   } catch (error) {
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ message: 'Session expirée, veuillez vous reconnecter' });
+    }
     return res.status(403).json({ message: 'Token invalide' });
   }
 };

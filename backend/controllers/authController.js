@@ -269,24 +269,14 @@ const requestPasswordReset = async (req, res) => {
     // Sauvegarder le token dans la base de données
     await User.setResetToken(email, resetToken, resetTokenExpires);
 
-    // En mode développement (et pour les tests), retourner le token pour les tests
-    // Retirer cette condition en production
-    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
-    return res.json({ 
-      message: 'Lien de réinitialisation (cliquez sur le lien ci-dessous)',
-      resetToken: resetToken,
-      resetUrl: resetUrl
-    });
-
-    // Envoyer l'email de réinitialisation (production)
+    // Envoyer l'email de réinitialisation
     const emailResult = await sendPasswordResetEmail(user.email, user.nom, resetToken);
-    
     if (!emailResult.success) {
       console.error('Erreur lors de l\'envoi de l\'email de réinitialisation:', emailResult.error);
-      // On continue quand même pour ne pas révéler l'erreur
+      // On continue pour ne pas révéler l'erreur à l'utilisateur
     }
 
-    res.json({ message: 'Si un compte existe avec cet email, vous recevrez un lien de réinitialisation.' });
+    res.json({ message: 'Si un compte existe avec cet email et est actif, vous recevrez un lien de réinitialisation.' });
   } catch (error) {
     console.error('Erreur lors de la demande de réinitialisation:', error);
     res.status(500).json({ message: 'Erreur serveur' });

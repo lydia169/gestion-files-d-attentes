@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { QueueStats, Service } from '../types';
 import { queueAPI } from '../services/api';
 
@@ -6,19 +6,8 @@ const Statistics: React.FC = () => {
   const [services, setServices] = useState<Service[]>([]);
   const [stats, setStats] = useState<{ [key: number]: QueueStats }>({});
   const [loading, setLoading] = useState(false);
-  const [loadingServices, setLoadingServices] = useState(true);
 
-  useEffect(() => {
-    loadServices();
-  }, []);
-
-  useEffect(() => {
-    if (services.length > 0) {
-      loadAllStats();
-    }
-  }, [services]);
-
-  const loadServices = async () => {
+  const loadServices = useCallback(async () => {
     try {
       const response = await fetch('/api/public/services');
       if (response.ok) {
@@ -27,12 +16,10 @@ const Statistics: React.FC = () => {
       }
     } catch (error) {
       console.error('Erreur lors du chargement des services:', error);
-    } finally {
-      setLoadingServices(false);
     }
-  };
+  }, []);
 
-  const loadAllStats = async () => {
+  const loadAllStats = useCallback(async () => {
     setLoading(true);
     try {
       const statsData: { [key: number]: QueueStats } = {};
@@ -56,7 +43,17 @@ const Statistics: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [services]);
+
+  useEffect(() => {
+    loadServices();
+  }, [loadServices]);
+
+  useEffect(() => {
+    if (services.length > 0) {
+      loadAllStats();
+    }
+  }, [services, loadAllStats]);
 
   const totalPatients = Object.values(stats).reduce((sum, serviceStats) =>
     sum + serviceStats.en_attente + serviceStats.en_cours + serviceStats.servis_aujourdhui, 0

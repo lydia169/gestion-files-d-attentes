@@ -1,6 +1,8 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const fs = require('fs');
 const path = require('path');
 const pool = require('./config/database');
@@ -8,8 +10,44 @@ const pool = require('./config/database');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Sécurité HTTP headers
+app.use(helmet());
+
+// Rate limiting global
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Trop de requêtes depuis cette IP, réessayez dans 15 minutes.' }
+});
+app.use(globalLimiter);
+
+// Rate limiting strict pour l'authentification (anti brute-force)
+const authLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 heure
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Trop de tentatives de connexion. Réessayez dans 1 heure.' }
+});
+
+// Rate limiting pour les routes publiques patients
+const publicLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 50,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Trop de requêtes, veuillez patienter.' }
+});
+
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -60,14 +98,14 @@ const { suggestService } = require('./utils/serviceMatcher');
 const { verifyPatient, getPatientTicket } = require('./controllers/queueController');
 const { subscribe, unsubscribe } = require('./controllers/pushController');
 
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/patients', patientRoutes);
 app.use('/api/queue', queueRoutes);
 app.use('/api/services', servicesRoutes);
 
-// Routes publiques pour les patients
-app.post('/api/public/register', registerPatient);
-app.get('/api/public/services', getAllServices);
+// Routes publiques pour les patients (rate-limitées)
+app.post('/api/public/register', publicLimiter, registerPatient);
+app.get('/api/public/services', publicLimiter, getAllServices);
 
 // Endpoint pour suggérer un service basé sur la description
 app.post('/api/public/suggest-service', (req, res) => {
@@ -85,13 +123,13 @@ app.post('/api/public/suggest-service', (req, res) => {
   }
 });
 
-// Routes pour récupération de numéro par patients existants
-app.post('/api/public/verify-patient', verifyPatient);
-app.post('/api/public/get-ticket', getPatientTicket);
+// Routes pour récupération de numéro par patients existants (rate-limitées)
+app.post('/api/public/verify-patient', publicLimiter, verifyPatient);
+app.post('/api/public/get-ticket', publicLimiter, getPatientTicket);
 
-// Routes pour les notifications push
-app.post('/api/public/push/subscribe', subscribe);
-app.post('/api/public/push/unsubscribe', unsubscribe);
+// Routes pour les notifications push (rate-limitées)
+app.post('/api/public/push/subscribe', publicLimiter, subscribe);
+app.post('/api/public/push/unsubscribe', publicLimiter, unsubscribe);
 
 app.get('/', (req, res) => {
   res.json({ message: 'API de Gestion de Files d\'Attente Hospitalière' });

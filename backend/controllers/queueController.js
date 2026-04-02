@@ -20,14 +20,9 @@ const TEMPS_PAR_DEFAUT_PAR_SERVICE = {
   11: 15  // Physiothérapie
 };
 
-console.log('Queue model:', Queue);
-console.log('Queue.create:', typeof Queue.create);
-
 const addToQueue = async (req, res) => {
   try {
     const { patient_id, service_id, priorite } = req.body;
-
-    console.log('Adding to queue:', { patient_id, service_id, priorite });
 
     // Verify patient exists
     const patient = await Patient.findById(patient_id);
@@ -35,10 +30,7 @@ const addToQueue = async (req, res) => {
       return res.status(404).json({ message: 'Patient non trouvé' });
     }
 
-    console.log('Patient found:', patient);
-
     const queueId = await Queue.create({ patient_id, service_id, priorite });
-    console.log('Queue created with id:', queueId);
 
     // Get the queue entry to return the numero
     const [queueEntry] = await pool.execute('SELECT numero FROM files_attente WHERE id = ?', [queueId]);
@@ -58,14 +50,11 @@ const registerPatient = async (req, res) => {
   try {
     const { nom, prenom, date_naissance, telephone, adresse, service_id, priorite = 'normal', description_probleme } = req.body;
 
-    console.log('Registering patient:', { nom, prenom, service_id, priorite, description_probleme });
-
-    // Si aucun service n'est sélectionné mais une description est fournie, suggérer un service (IA + mots-clés)
+    // Si aucun service n'est sélectionné mais une description est fournie, suggerer un service
     let finalServiceId = service_id;
     let serviceSuggere = null;
     
     if ((!service_id || service_id === 0) && description_probleme && description_probleme.trim().length > 3) {
-      // Essayer uniquement l'IA (sans fallback mots-clés pour test)
       const suggestion = await suggestServiceWithFallback(description_probleme, date_naissance, null);
       if (suggestion && suggestion.serviceId) {
         finalServiceId = suggestion.serviceId;
@@ -74,43 +63,34 @@ const registerPatient = async (req, res) => {
           nom: suggestion.serviceName,
           confiance: suggestion.confidence
         };
-        console.log('Service suggéré:', serviceSuggere);
       }
     }
 
     // Si toujours pas de service, utiliser Consultation générale par défaut
     if (!finalServiceId || finalServiceId === 0) {
-      finalServiceId = 3; // Consultation générale
+      finalServiceId = 3;
     }
 
     // Create patient
     const patientId = await Patient.create({ nom, prenom, date_naissance, telephone, adresse });
-    console.log('Patient created with id:', patientId);
 
     // Add to queue
     const queueId = await Queue.create({ patient_id: patientId, service_id: finalServiceId, priorite });
-    console.log('Queue created with id:', queueId);
 
     // Get the queue entry to return the numero
     const [queueEntry] = await pool.execute('SELECT numero FROM files_attente WHERE id = ?', [queueId]);
 
     // Get queue stats for estimated wait time
     const stats = await Queue.getStats(finalServiceId);
-    console.log('Stats for service', finalServiceId, ':', stats);
     
-    // Utiliser l'historique si disponible, sinon utiliser le temps par défaut
     let tempsMoyen = stats.temps_attente_moyen || 0;
-    console.log('Temps moyen:', tempsMoyen);
-    
-    // Utiliser le temps par défaut si le temps calculé est trop petit (< 5 min)
     if (tempsMoyen < 5 && TEMPS_PAR_DEFAUT_PAR_SERVICE[finalServiceId]) {
       tempsMoyen = TEMPS_PAR_DEFAUT_PAR_SERVICE[finalServiceId];
-      console.log('Temps moyen corrigé:', tempsMoyen);
     } else if (tempsMoyen === 0) {
-      tempsMoyen = 15; // Valeur par défaut
+      tempsMoyen = 15;
     }
     
-    const estimatedWaitTime = tempsMoyen * (stats.en_cours + stats.en_attente + 1); // +1 for the current patient
+    const estimatedWaitTime = tempsMoyen * (stats.en_cours + stats.en_attente + 1);
 
     // Get service name
     const [serviceRows] = await pool.execute('SELECT nom FROM services WHERE id = ?', [finalServiceId]);
@@ -161,7 +141,11 @@ const getCurrentPatient = async (req, res) => {
 const callNextPatient = async (req, res) => {
   try {
     const { service_id } = req.params;
-    const user_id = req.user ? req.user.id : 1; // Default to user 1 if not authenticated
+
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ message: 'Authentification requise pour appeler un patient' });
+    }
+    const user_id = req.user.id;
     
     const queueId = await Queue.callNext(service_id, user_id);
     
@@ -178,7 +162,9 @@ const callNextPatient = async (req, res) => {
         'C\'est votre tour !',
         `Patient ${current.prenom} ${current.nom}, votre numéro a été appelé. Veuillez vous présenter au guichet.`
       );
-      console.log('Résultat de la notification push:', notificationResult);
+      if (!notificationResult.success) {
+        console.warn('Notification push non envoyée:', notificationResult.error);
+      }
     }
     
     res.json({

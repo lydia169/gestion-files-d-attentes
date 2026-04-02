@@ -5,14 +5,16 @@ require('dotenv').config();
 const createTransporter = () => {
   return nodemailer.createTransport({
     host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-    port: process.env.EMAIL_PORT || 587,
-    secure: false,
+    port: parseInt(process.env.EMAIL_PORT || '587', 10),
+    secure: process.env.EMAIL_PORT === '465', // true uniquement pour le port SSL 465
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASSWORD
     },
     tls: {
-      rejectUnauthorized: false
+      // En développement local, on peut désactiver la vérification TLS
+      // En production, elle est activée pour éviter les attaques MITM
+      rejectUnauthorized: process.env.NODE_ENV === 'production'
     }
   });
 };

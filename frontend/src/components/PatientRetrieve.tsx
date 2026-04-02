@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Service } from '../types';
-import { subscribeToPush, isPushSupported, requestNotificationPermission } from '../utils/push';
+import { subscribeToPush, isPushSupported } from '../utils/push';
 
 interface VerifiedPatient {
   id: number;
@@ -39,11 +39,7 @@ const PatientRetrieve: React.FC = () => {
   const [ticketData, setTicketData] = useState<TicketResponse | null>(null);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    fetchServices();
-  }, []);
-
-  const fetchServices = async () => {
+  const fetchServices = useCallback(async () => {
     try {
       const response = await fetch('/api/public/services');
       if (response.ok) {
@@ -53,7 +49,11 @@ const PatientRetrieve: React.FC = () => {
     } catch (err) {
       console.error('Erreur lors du chargement des services:', err);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchServices();
+  }, [fetchServices]);
 
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();

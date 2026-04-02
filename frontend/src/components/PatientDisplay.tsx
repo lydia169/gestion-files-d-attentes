@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { QueueItem, Service } from '../types';
 import { queueAPI } from '../services/api';
@@ -10,19 +10,7 @@ const PatientDisplay: React.FC = () => {
   const [currentPatients, setCurrentPatients] = useState<{ [key: number]: QueueItem | null }>({});
   const [queues, setQueues] = useState<{ [key: number]: QueueItem[] }>({});
 
-  useEffect(() => {
-    loadServices();
-  }, []);
-
-  useEffect(() => {
-    if (services.length > 0) {
-      loadAllData();
-      const interval = setInterval(loadAllData, 5000); // Refresh every 5 seconds
-      return () => clearInterval(interval);
-    }
-  }, [services]);
-
-  const loadServices = async () => {
+  const loadServices = useCallback(async () => {
     try {
       const response = await fetch('/api/public/services');
       if (response.ok) {
@@ -32,9 +20,9 @@ const PatientDisplay: React.FC = () => {
     } catch (error) {
       console.error('Erreur lors du chargement des services:', error);
     }
-  };
+  }, []);
 
-  const loadAllData = async () => {
+  const loadAllData = useCallback(async () => {
     const currents: { [key: number]: QueueItem | null } = {};
     const queueData: { [key: number]: QueueItem[] } = {};
 
@@ -54,7 +42,19 @@ const PatientDisplay: React.FC = () => {
 
     setCurrentPatients(currents);
     setQueues(queueData);
-  };
+  }, [services]);
+
+  useEffect(() => {
+    loadServices();
+  }, [loadServices]);
+
+  useEffect(() => {
+    if (services.length > 0) {
+      loadAllData();
+      const interval = setInterval(loadAllData, 5000); // Refresh every 5 seconds
+      return () => clearInterval(interval);
+    }
+  }, [services, loadAllData]);
 
   const filteredServices = serviceFilter ? services.filter(s => s.id === Number(serviceFilter)) : services;
 

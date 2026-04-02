@@ -43,11 +43,7 @@ const publicLimiter = rateLimit({
 });
 
 // Middleware
-const allowedOrigins = [
-  process.env.FRONTEND_URL,
-  'http://localhost:3000',
-  'https://gestion-files-d-attentes.vercel.app'
-].filter(Boolean);
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000').split(',').map(o => o.trim());
 
 app.use(cors({
   origin: function (origin, callback) {

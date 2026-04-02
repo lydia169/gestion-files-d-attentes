@@ -3,14 +3,18 @@ const { webpush } = require('../utils/webpush');
 
 // Créer la table push_subscriptions si elle n'existe pas
 const initPushTable = async () => {
+  const isPostgres = !!process.env.DATABASE_URL;
+  const idType = isPostgres ? 'SERIAL PRIMARY KEY' : 'INTEGER PRIMARY KEY AUTOINCREMENT';
+  const dateType = isPostgres ? 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP' : 'DATETIME DEFAULT CURRENT_TIMESTAMP';
+
   await pool.execute(`
     CREATE TABLE IF NOT EXISTS push_subscriptions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id ${idType},
       patient_id INTEGER NOT NULL,
       service_id INTEGER,
       endpoint TEXT NOT NULL,
       keys TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      created_at ${dateType},
       FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
     )
   `);
